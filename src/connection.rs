@@ -7,6 +7,8 @@ use std::path::Path;
 use error::Result;
 use statement::Statement;
 
+use crate::Error;
+
 /// A database connection.
 pub struct Connection {
     raw: Raw,
@@ -121,7 +123,7 @@ impl Connection {
 
     /// Create a prepared statement.
     #[inline]
-    pub fn prepare<'l, T: AsRef<str>>(&'l self, statement: T) -> Result<Statement<'l>> {
+    pub fn prepare<'l, T: AsRef<str>>(&'l self, statement: T) -> Result<Statement> {
         ::statement::new(self.raw.0, statement)
     }
 
@@ -192,6 +194,25 @@ impl Connection {
     #[inline]
     pub fn as_raw(&self) -> *mut ffi::sqlite3 {
         self.raw.0
+    }
+
+    /// return last error in connection
+    pub fn last(&mut self) -> Option<Error> {
+        let raw = self.as_raw();
+        unsafe {
+            let code = ffi::sqlite3_errcode(raw);
+            if code == ffi::SQLITE_OK {
+                return None;
+            }
+            let message = ffi::sqlite3_errmsg(raw);
+            if message.is_null() {
+                return None;
+            }
+            Some(Error {
+                code: Some(code as isize),
+                message: Some(c_str_to_string!(message)),
+            })
+        }
     }
 }
 

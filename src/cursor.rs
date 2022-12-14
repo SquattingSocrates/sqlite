@@ -8,15 +8,15 @@ use statement::{Bindable, State, Statement};
 use value::Value;
 
 /// An iterator for a prepared statement.
-pub struct Cursor<'l, 'm> {
-    statement: &'m mut Statement<'l>,
+pub struct Cursor<'m> {
+    statement: &'m mut Statement,
     values: Vec<Value>,
     state: Option<State>,
 }
 
 /// An iterator for a prepared statement with ownership.
-pub struct CursorWithOwnership<'l> {
-    statement: Statement<'l>,
+pub struct CursorWithOwnership {
+    statement: Statement,
     values: Vec<Value>,
     state: Option<State>,
 }
@@ -89,7 +89,7 @@ macro_rules! implement(
         }
 
         impl<$($lifetime),+> Deref for $type<$($lifetime),+> {
-            type Target = Statement<'l>;
+            type Target = Statement;
 
             #[inline]
             fn deref(&self) -> &Self::Target {
@@ -112,15 +112,91 @@ macro_rules! implement(
                     .transpose()
             }
         }
+    };
+    ($type:ident) => {
+        impl$type {
+            /// Bind values to parameters.
+            ///
+            /// See `Statement::bind` for further details.
+            pub fn bind<T: Bindable>(self, value: T) -> Result<Self> {
+                #[allow(unused_mut)]
+                let mut cursor = self.reset()?;
+                cursor.statement.bind(value)?;
+                Ok(cursor)
+            }
+
+            /// Bind values to parameters via an iterator.
+            ///
+            /// See `Statement::bind_iter` for further details.
+            pub fn bind_iter<T, U>(self, value: T) -> Result<Self>
+            where
+                T: IntoIterator<Item = U>,
+                U: Bindable,
+            {
+                #[allow(unused_mut)]
+                let mut cursor = self.reset()?;
+                cursor.statement.bind_iter(value)?;
+                Ok(cursor)
+            }
+
+            /// Reset the internal state.
+            pub fn reset(mut self) -> Result<Self> {
+                self.state = None;
+                self.statement.reset()?;
+                Ok(self)
+            }
+
+            /// Advance to the next row and read all columns.
+            pub fn try_next(&mut self) -> Result<Option<&[Value]>> {
+                match self.state {
+                    Some(State::Row) => {}
+                    Some(State::Done) => return Ok(None),
+                    _ => {
+                        self.state = Some(self.statement.next()?);
+                        return self.try_next();
+                    }
+                }
+                for (index, value) in self.values.iter_mut().enumerate() {
+                    *value = self.statement.read(index)?;
+                }
+                self.state = Some(self.statement.next()?);
+                Ok(Some(&self.values))
+            }
+        }
+
+        impl Deref for $type {
+            type Target = Statement;
+
+            #[inline]
+            fn deref(&self) -> &Self::Target {
+                &self.statement
+            }
+        }
+
+        impl Iterator for $type {
+            type Item = Result<Row>;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                let column_mapping = self.statement.column_mapping();
+                self.try_next()
+                    .map(|row| {
+                        row.map(|row| Row {
+                            column_mapping: column_mapping,
+                            values: row.to_vec(),
+                        })
+                    })
+                    .transpose()
+            }
+        }
     }
 );
 
-implement!(Cursor<'l, 'm>);
-implement!(CursorWithOwnership<'l>);
+implement!(Cursor<'m>);
+implement!(CursorWithOwnership);
 
-impl<'l> From<CursorWithOwnership<'l>> for Statement<'l> {
+impl<'l> From<CursorWithOwnership> for Statement {
     #[inline]
-    fn from(cursor: CursorWithOwnership<'l>) -> Self {
+    fn from(cursor: CursorWithOwnership) -> Self {
         cursor.statement
     }
 }
@@ -188,7 +264,7 @@ impl RowIndex for usize {
     }
 }
 
-pub fn new<'l, 'm>(statement: &'m mut Statement<'l>) -> Cursor<'l, 'm> {
+pub fn new<'l, 'm>(statement: &'m mut Statement) -> Cursor<'m> {
     let values = vec![Value::Null; statement.column_count()];
     Cursor {
         statement: statement,
@@ -197,7 +273,7 @@ pub fn new<'l, 'm>(statement: &'m mut Statement<'l>) -> Cursor<'l, 'm> {
     }
 }
 
-pub fn new_with_ownership<'l>(statement: Statement<'l>) -> CursorWithOwnership<'l> {
+pub fn new_with_ownership<'l>(statement: Statement) -> CursorWithOwnership {
     let values = vec![Value::Null; statement.column_count()];
     CursorWithOwnership {
         statement: statement,

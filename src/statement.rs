@@ -14,12 +14,16 @@ macro_rules! transient(
 );
 
 /// A prepared statement.
-pub struct Statement<'l> {
-    raw: (*mut ffi::sqlite3_stmt, *mut ffi::sqlite3),
+#[derive(Debug, Clone)]
+pub struct Statement {
+    raw: *mut ffi::sqlite3_stmt,
     column_names: Vec<String>,
     column_mapping: Rc<HashMap<String, usize>>,
-    phantom: PhantomData<(ffi::sqlite3_stmt, &'l ffi::sqlite3)>,
+    phantom: PhantomData<ffi::sqlite3_stmt>,
 }
+
+unsafe impl<'l> Sync for Statement {}
+unsafe impl<'l> Send for Statement {}
 
 /// A type suitable for binding to a prepared statement.
 pub trait Bindable {
@@ -64,7 +68,7 @@ pub enum State {
     Done,
 }
 
-impl<'l> Statement<'l> {
+impl Statement {
     /// Bind values to parameters.
     ///
     /// # Examples
@@ -179,7 +183,7 @@ impl<'l> Statement<'l> {
     /// The type becomes available after taking a step.
     pub fn column_type<T: ColumnIndex>(&self, index: T) -> Result<Type> {
         Ok(
-            match unsafe { ffi::sqlite3_column_type(self.raw.0, index.index(self)? as c_int) } {
+            match unsafe { ffi::sqlite3_column_type(self.raw, index.index(self)? as c_int) } {
                 ffi::SQLITE_BLOB => Type::Binary,
                 ffi::SQLITE_FLOAT => Type::Float,
                 ffi::SQLITE_INTEGER => Type::Integer,
@@ -192,7 +196,7 @@ impl<'l> Statement<'l> {
 
     /// Create a cursor.
     #[inline]
-    pub fn iter(&mut self) -> Cursor<'l, '_> {
+    pub fn iter(&mut self) -> Cursor {
         self.into()
     }
 
@@ -201,10 +205,15 @@ impl<'l> Statement<'l> {
     /// The function should be called multiple times until `State::Done` is
     /// reached in order to evaluate the statement entirely.
     pub fn next(&mut self) -> Result<State> {
-        Ok(match unsafe { ffi::sqlite3_step(self.raw.0) } {
+        Ok(match unsafe { ffi::sqlite3_step(self.raw) } {
             ffi::SQLITE_ROW => State::Row,
             ffi::SQLITE_DONE => State::Done,
-            code => error!(self.raw.1, code),
+            code => {
+                return Err(::Error {
+                    code: Some(code as isize),
+                    message: None,
+                })
+            }
         })
     }
 
@@ -224,7 +233,7 @@ impl<'l> Statement<'l> {
     #[inline]
     pub fn parameter_index(&self, parameter: &str) -> Result<Option<usize>> {
         let index = unsafe {
-            ffi::sqlite3_bind_parameter_index(self.raw.0, str_to_cstr!(parameter).as_ptr())
+            ffi::sqlite3_bind_parameter_index(self.raw, str_to_cstr!(parameter).as_ptr())
         };
         match index {
             0 => Ok(None),
@@ -245,34 +254,34 @@ impl<'l> Statement<'l> {
     /// Reset the internal state.
     #[inline]
     pub fn reset(&mut self) -> Result<()> {
-        unsafe { ok!(self.raw.1, ffi::sqlite3_reset(self.raw.0)) };
+        unsafe { ok!(ffi::sqlite3_reset(self.raw)) };
         Ok(())
     }
 
     #[doc(hidden)]
     #[inline]
     pub fn as_raw(&self) -> *mut ffi::sqlite3_stmt {
-        self.raw.0
+        self.raw
     }
 }
 
-impl<'l> Drop for Statement<'l> {
+impl Drop for Statement {
     #[inline]
     fn drop(&mut self) {
-        unsafe { ffi::sqlite3_finalize(self.raw.0) };
+        unsafe { ffi::sqlite3_finalize(self.raw) };
     }
 }
 
-impl<'l, 'm> From<&'m mut Statement<'l>> for Cursor<'l, 'm> {
+impl<'m> From<&'m mut Statement> for Cursor<'m> {
     #[inline]
-    fn from(statement: &'m mut Statement<'l>) -> Self {
+    fn from(statement: &'m mut Statement) -> Self {
         ::cursor::new(statement)
     }
 }
 
-impl<'l> IntoIterator for Statement<'l> {
+impl IntoIterator for Statement {
     type Item = Result<Row>;
-    type IntoIter = CursorWithOwnership<'l>;
+    type IntoIter = CursorWithOwnership;
 
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -320,16 +329,13 @@ impl BindableWithIndex for &[u8] {
     #[inline]
     fn bind<T: ParameterIndex>(self, statement: &mut Statement, index: T) -> Result<()> {
         unsafe {
-            ok!(
-                statement.raw.1,
-                ffi::sqlite3_bind_blob(
-                    statement.raw.0,
-                    index.index(statement)? as c_int,
-                    self.as_ptr() as *const _,
-                    self.len() as c_int,
-                    transient!(),
-                )
-            );
+            ok!(ffi::sqlite3_bind_blob(
+                statement.raw,
+                index.index(statement)? as c_int,
+                self.as_ptr() as *const _,
+                self.len() as c_int,
+                transient!(),
+            ));
         }
         Ok(())
     }
@@ -339,14 +345,11 @@ impl BindableWithIndex for f64 {
     #[inline]
     fn bind<T: ParameterIndex>(self, statement: &mut Statement, index: T) -> Result<()> {
         unsafe {
-            ok!(
-                statement.raw.1,
-                ffi::sqlite3_bind_double(
-                    statement.raw.0,
-                    index.index(statement)? as c_int,
-                    self as c_double
-                )
-            );
+            ok!(ffi::sqlite3_bind_double(
+                statement.raw,
+                index.index(statement)? as c_int,
+                self as c_double
+            ));
         }
         Ok(())
     }
@@ -356,14 +359,11 @@ impl BindableWithIndex for i64 {
     #[inline]
     fn bind<T: ParameterIndex>(self, statement: &mut Statement, index: T) -> Result<()> {
         unsafe {
-            ok!(
-                statement.raw.1,
-                ffi::sqlite3_bind_int64(
-                    statement.raw.0,
-                    index.index(statement)? as c_int,
-                    self as ffi::sqlite3_int64
-                )
-            );
+            ok!(ffi::sqlite3_bind_int64(
+                statement.raw,
+                index.index(statement)? as c_int,
+                self as ffi::sqlite3_int64
+            ));
         }
         Ok(())
     }
@@ -372,17 +372,22 @@ impl BindableWithIndex for i64 {
 impl BindableWithIndex for &str {
     #[inline]
     fn bind<T: ParameterIndex>(self, statement: &mut Statement, index: T) -> Result<()> {
+        println!(
+            "BINDING TEXT {:?} | {:?} -> {}",
+            statement,
+            index.index(statement),
+            self
+        );
         unsafe {
-            ok!(
-                statement.raw.1,
-                ffi::sqlite3_bind_text(
-                    statement.raw.0,
-                    index.index(statement)? as c_int,
-                    self.as_ptr() as *const _,
-                    self.len() as c_int,
-                    transient!(),
-                )
+            let value = ffi::sqlite3_bind_text(
+                statement.raw,
+                index.index(statement)? as c_int,
+                self.as_ptr() as *const _,
+                self.len() as c_int,
+                transient!(),
             );
+            println!("GOT RESPONSE FROM BIND {:?}", value);
+            ok!(value);
         }
         Ok(())
     }
@@ -392,10 +397,10 @@ impl BindableWithIndex for () {
     #[inline]
     fn bind<T: ParameterIndex>(self, statement: &mut Statement, index: T) -> Result<()> {
         unsafe {
-            ok!(
-                statement.raw.1,
-                ffi::sqlite3_bind_null(statement.raw.0, index.index(statement)? as c_int)
-            );
+            ok!(ffi::sqlite3_bind_null(
+                statement.raw,
+                index.index(statement)? as c_int
+            ));
         }
         Ok(())
     }
@@ -505,7 +510,7 @@ impl ReadableWithIndex for f64 {
     #[inline]
     fn read<T: ColumnIndex>(statement: &Statement, index: T) -> Result<Self> {
         Ok(unsafe {
-            ffi::sqlite3_column_double(statement.raw.0, index.index(statement)? as c_int) as f64
+            ffi::sqlite3_column_double(statement.raw, index.index(statement)? as c_int) as f64
         })
     }
 }
@@ -514,7 +519,7 @@ impl ReadableWithIndex for i64 {
     #[inline]
     fn read<T: ColumnIndex>(statement: &Statement, index: T) -> Result<Self> {
         Ok(unsafe {
-            ffi::sqlite3_column_int64(statement.raw.0, index.index(statement)? as c_int) as i64
+            ffi::sqlite3_column_int64(statement.raw, index.index(statement)? as c_int) as i64
         })
     }
 }
@@ -523,8 +528,7 @@ impl ReadableWithIndex for String {
     #[inline]
     fn read<T: ColumnIndex>(statement: &Statement, index: T) -> Result<Self> {
         unsafe {
-            let pointer =
-                ffi::sqlite3_column_text(statement.raw.0, index.index(statement)? as c_int);
+            let pointer = ffi::sqlite3_column_text(statement.raw, index.index(statement)? as c_int);
             if pointer.is_null() {
                 raise!("cannot read a text column");
             }
@@ -538,13 +542,12 @@ impl ReadableWithIndex for Vec<u8> {
     fn read<T: ColumnIndex>(statement: &Statement, index: T) -> Result<Self> {
         use std::ptr::copy_nonoverlapping as copy;
         unsafe {
-            let pointer =
-                ffi::sqlite3_column_blob(statement.raw.0, index.index(statement)? as c_int);
+            let pointer = ffi::sqlite3_column_blob(statement.raw, index.index(statement)? as c_int);
             if pointer.is_null() {
                 return Ok(vec![]);
             }
-            let count = ffi::sqlite3_column_bytes(statement.raw.0, index.index(statement)? as c_int)
-                as usize;
+            let count =
+                ffi::sqlite3_column_bytes(statement.raw, index.index(statement)? as c_int) as usize;
             let mut buffer = Vec::with_capacity(count);
             buffer.set_len(count);
             copy(pointer as *const u8, buffer.as_mut_ptr(), count);
@@ -565,7 +568,7 @@ impl<T: ReadableWithIndex> ReadableWithIndex for Option<T> {
 }
 
 #[inline]
-pub fn new<'l, T>(raw_connection: *mut ffi::sqlite3, statement: T) -> Result<Statement<'l>>
+pub fn new<'l, T>(raw_connection: *mut ffi::sqlite3, statement: T) -> Result<Statement>
 where
     T: AsRef<str>,
 {
@@ -596,7 +599,7 @@ where
         .map(|(index, name)| (name.to_string(), index))
         .collect();
     Ok(Statement {
-        raw: (raw_statement, raw_connection),
+        raw: raw_statement,
         column_names: column_names,
         column_mapping: Rc::new(column_mapping),
         phantom: PhantomData,
