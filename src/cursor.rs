@@ -11,14 +11,12 @@ use value::Value;
 pub struct Cursor<'m> {
     statement: &'m mut Statement,
     values: Vec<Value>,
-    state: Option<State>,
 }
 
 /// An iterator for a prepared statement with ownership.
 pub struct CursorWithOwnership {
     statement: Statement,
     values: Vec<Value>,
-    state: Option<State>,
 }
 
 /// A row.
@@ -41,7 +39,8 @@ macro_rules! implement(
         impl<$($lifetime),+> $type<$($lifetime),+> {
             /// Bind values to parameters.
             ///
-            /// See `Statement::bind` for further details.
+            /// In case of integer indices, the first parameter has index 1. See
+            /// `Statement::bind` for further details.
             pub fn bind<T: Bindable>(self, value: T) -> Result<Self> {
                 #[allow(unused_mut)]
                 let mut cursor = self.reset()?;
@@ -52,38 +51,32 @@ macro_rules! implement(
             /// Bind values to parameters via an iterator.
             ///
             /// See `Statement::bind_iter` for further details.
+            #[allow(unused_mut)]
             pub fn bind_iter<T, U>(self, value: T) -> Result<Self>
             where
                 T: IntoIterator<Item = U>,
                 U: Bindable,
             {
-                #[allow(unused_mut)]
                 let mut cursor = self.reset()?;
                 cursor.statement.bind_iter(value)?;
                 Ok(cursor)
             }
 
             /// Reset the internal state.
+            #[allow(unused_mut)]
             pub fn reset(mut self) -> Result<Self> {
-                self.state = None;
                 self.statement.reset()?;
                 Ok(self)
             }
 
             /// Advance to the next row and read all columns.
             pub fn try_next(&mut self) -> Result<Option<&[Value]>> {
-                match self.state {
-                    Some(State::Row) => {}
-                    Some(State::Done) => return Ok(None),
-                    _ => {
-                        self.state = Some(self.statement.next()?);
-                        return self.try_next();
-                    }
+                if self.statement.next()? == State::Done {
+                    return Ok(None);
                 }
                 for (index, value) in self.values.iter_mut().enumerate() {
                     *value = self.statement.read(index)?;
                 }
-                self.state = Some(self.statement.next()?);
                 Ok(Some(&self.values))
             }
         }
@@ -204,6 +197,8 @@ impl<'l> From<CursorWithOwnership> for Statement {
 impl Row {
     /// Read the value in a column.
     ///
+    /// In case of integer indices, the first column has index 0.
+    ///
     /// # Panics
     ///
     /// Panics if the column could not be read.
@@ -217,6 +212,8 @@ impl Row {
     }
 
     /// Try to read the value in a column.
+    ///
+    /// In case of integer indices, the first column has index 0.
     #[inline]
     pub fn try_read<'l, T, U>(&'l self, column: U) -> Result<T>
     where
@@ -269,7 +266,6 @@ pub fn new<'l, 'm>(statement: &'m mut Statement) -> Cursor<'m> {
     Cursor {
         statement: statement,
         values: values,
-        state: None,
     }
 }
 
@@ -278,6 +274,5 @@ pub fn new_with_ownership<'l>(statement: Statement) -> CursorWithOwnership {
     CursorWithOwnership {
         statement: statement,
         values: values,
-        state: None,
     }
 }

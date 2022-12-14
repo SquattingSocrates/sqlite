@@ -34,6 +34,8 @@ pub trait Bindable {
 /// A type suitable for binding to a prepared statement given a parameter index.
 pub trait BindableWithIndex {
     /// Bind to a parameter.
+    ///
+    /// In case of integer indices, the first parameter has index 1.
     fn bind<T: ParameterIndex>(self, _: &mut Statement, _: T) -> Result<()>;
 }
 
@@ -56,6 +58,8 @@ pub trait ParameterIndex: Copy + std::fmt::Debug {
 /// A type suitable for reading from a prepared statement given a column index.
 pub trait ReadableWithIndex: Sized {
     /// Read from a column.
+    ///
+    /// In case of integer indices, the first column has index 0.
     fn read<T: ColumnIndex>(_: &Statement, _: T) -> Result<Self>;
 }
 
@@ -70,6 +74,8 @@ pub enum State {
 
 impl Statement {
     /// Bind values to parameters.
+    ///
+    /// In case of integer indices, the first parameter has index 1.
     ///
     /// # Examples
     ///
@@ -167,6 +173,8 @@ impl Statement {
     }
 
     /// Return the name of a column.
+    ///
+    /// In case of integer indices, the first column has index 0.
     #[inline]
     pub fn column_name<T: ColumnIndex>(&self, index: T) -> Result<&str> {
         Ok(&self.column_names[index.index(self)?])
@@ -180,7 +188,8 @@ impl Statement {
 
     /// Return the type of a column.
     ///
-    /// The type becomes available after taking a step.
+    /// The type becomes available after taking a step. In case of integer
+    /// indices, the first column has index 0.
     pub fn column_type<T: ColumnIndex>(&self, index: T) -> Result<Type> {
         Ok(
             match unsafe { ffi::sqlite3_column_type(self.raw, index.index(self)? as c_int) } {
@@ -242,6 +251,8 @@ impl Statement {
     }
 
     /// Read a value from a column.
+    ///
+    /// In case of integer indices, the first column has index 0.
     #[inline]
     pub fn read<T, U>(&self, index: U) -> Result<T>
     where
