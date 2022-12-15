@@ -1,29 +1,30 @@
 [package]
-name = "sqlite"
-version = "0.30.3"
-license = "Apache-2.0/MIT"
 authors = [
-    "Alec Moskvin <alecm@gmx.com>",
-    "Angel Leon <gubatron@gmail.com>",
-    "Cecile Tonglet <cecile.tonglet@cecton.com>",
-    "Daniel Dulaney <ddy@vitronic.com>",
-    "Ivan Stankovic <pokemon@fly.srk.fer.hr>",
-    "Ivan Ukhov <ivan.ukhov@gmail.com>",
-    "Jake Kerr <kodafox@gmail.com>",
-    "Jayson Reis <santosdosreis@gmail.com>",
-    "Pierre Krieger <pierre.krieger1708@gmail.com>",
-    "Sean Klein <seanmarionklein@gmail.com>",
-    "Sophie Tauchert <999eagle@999eagle.moe>",
-    "Tomoki Aonuma <uasi@uasi.jp>",
-    "Yorhel <git@yorhel.nl>",
+  "Alec Moskvin <alecm@gmx.com>",
+  "Angel Leon <gubatron@gmail.com>",
+  "Cecile Tonglet <cecile.tonglet@cecton.com>",
+  "Daniel Dulaney <ddy@vitronic.com>",
+  "Ivan Stankovic <pokemon@fly.srk.fer.hr>",
+  "Ivan Ukhov <ivan.ukhov@gmail.com>",
+  "Jake Kerr <kodafox@gmail.com>",
+  "Jayson Reis <santosdosreis@gmail.com>",
+  "Pierre Krieger <pierre.krieger1708@gmail.com>",
+  "Sean Klein <seanmarionklein@gmail.com>",
+  "Sophie Tauchert <999eagle@999eagle.moe>",
+  "Tomoki Aonuma <uasi@uasi.jp>",
+  "Yorhel <git@yorhel.nl>",
+  "Yuriy Voshchepynets <yuriy.voshchepynets@ckreator.com>",
 ]
+categories = ["api-bindings", "database", "lunatic"]
 description = "The package provides an interface to SQLite."
-documentation = "https://docs.rs/sqlite"
-homepage = "https://github.com/stainless-steel/sqlite"
-repository = "https://github.com/stainless-steel/sqlite"
-readme = "README.md"
-categories = ["api-bindings", "database"]
+documentation = "https://docs.rs/sqlite-bindings-lunatic"
+homepage = "https://github.com/SquattingSocrates/sqlite"
 keywords = ["database"]
+license = "Apache-2.0/MIT"
+name = "sqlite-bindings-lunatic"
+readme = "README.md"
+repository = "https://github.com/SquattingSocrates/sqlite"
+version = "0.30.3"
 
 [features]
 default = ["linkage"]
@@ -33,8 +34,8 @@ linkage = ["sqlite3-sys/linkage"]
 libc = "0.2"
 
 [dependencies.sqlite3-sys]
-version = "0.14"
 default-features = false
+version = "0.14"
 
 [dev-dependencies]
 temporary = "0.6"

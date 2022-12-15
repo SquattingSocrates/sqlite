@@ -1,7 +1,7 @@
-extern crate sqlite;
+extern crate sqlite_bindings_lunatic;
 extern crate temporary;
 
-use sqlite::{Connection, OpenFlags, State};
+use sqlite_bindings_lunatic::{Connection, OpenFlags, State};
 
 mod common;
 
@@ -113,7 +113,7 @@ fn set_busy_handler() {
         .map(|_| {
             let path = path.to_path_buf();
             thread::spawn(move || {
-                let mut connection = ok!(sqlite::open(&path));
+                let mut connection = ok!(sqlite_bindings_lunatic::open(&path));
                 ok!(connection.set_busy_handler(|_| true));
                 let query = "INSERT INTO users VALUES (?, ?, ?, ?, ?)";
                 let mut statement = ok!(connection.prepare(query));

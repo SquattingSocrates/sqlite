@@ -134,25 +134,18 @@ macro_rules! implement(
 
             /// Reset the internal state.
             pub fn reset(mut self) -> Result<Self> {
-                self.state = None;
                 self.statement.reset()?;
                 Ok(self)
             }
 
             /// Advance to the next row and read all columns.
             pub fn try_next(&mut self) -> Result<Option<&[Value]>> {
-                match self.state {
-                    Some(State::Row) => {}
-                    Some(State::Done) => return Ok(None),
-                    _ => {
-                        self.state = Some(self.statement.next()?);
-                        return self.try_next();
-                    }
+                if self.statement.next()? == State::Done {
+                    return Ok(None);
                 }
                 for (index, value) in self.values.iter_mut().enumerate() {
                     *value = self.statement.read(index)?;
                 }
-                self.state = Some(self.statement.next()?);
                 Ok(Some(&self.values))
             }
         }

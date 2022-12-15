@@ -1,6 +1,6 @@
-extern crate sqlite;
+extern crate sqlite_bindings_lunatic;
 
-use sqlite::{Connection, State, Statement, Type, Value};
+use sqlite_bindings_lunatic::{Connection, State, Statement, Type, Value};
 
 mod common;
 
@@ -253,11 +253,11 @@ fn workflow() {
     struct Database<'l> {
         #[allow(dead_code)]
         connection: &'l Connection,
-        statement: Statement<'l>,
+        statement: Statement,
     }
 
     impl<'l> Database<'l> {
-        fn run_once(&mut self) -> sqlite::Result<()> {
+        fn run_once(&mut self) -> sqlite_bindings_lunatic::Result<()> {
             self.statement.reset()?;
             self.statement.bind((":age", 40))?;
             assert_eq!(ok!(self.statement.next()), State::Row);

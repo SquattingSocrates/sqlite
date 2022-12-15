@@ -1,6 +1,6 @@
-extern crate sqlite;
+extern crate sqlite_bindings_lunatic;
 
-use sqlite::{Type, Value};
+use sqlite_bindings_lunatic::{Type, Value};
 use std::collections::HashMap;
 
 mod common;
@@ -11,7 +11,7 @@ macro_rules! ok(($result:expr) => ($result.unwrap()));
 
 #[test]
 fn bind_iter() {
-    let connection = ok!(sqlite::open(":memory:"));
+    let connection = ok!(sqlite_bindings_lunatic::open(":memory:"));
     ok!(connection.execute("CREATE TABLE users (id INTEGER, name STRING)"));
     let mut statement = ok!(connection.prepare("INSERT INTO users VALUES (:id, :name)"));
 
