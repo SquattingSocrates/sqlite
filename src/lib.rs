@@ -5,7 +5,7 @@
 //! Open a connection, create a table, and insert a few rows:
 //!
 //! ```
-//! let connection = sqlite::open(":memory:").unwrap();
+//! let connection = sqlite_bindings_lunatic::open(":memory:").unwrap();
 //!
 //! let query = "
 //!     CREATE TABLE users (name TEXT, age INTEGER);
@@ -19,7 +19,7 @@
 //! not efficient:
 //!
 //! ```
-//! # let connection = sqlite::open(":memory:").unwrap();
+//! # let connection = sqlite_bindings_lunatic::open(":memory:").unwrap();
 //! # let query = "
 //! #     CREATE TABLE users (name TEXT, age INTEGER);
 //! #     INSERT INTO users VALUES ('Alice', 42);
@@ -42,8 +42,8 @@
 //! than the previous technique:
 //!
 //! ```
-//! use sqlite::State;
-//! # let connection = sqlite::open(":memory:").unwrap();
+//! use sqlite_bindings_lunatic::State;
+//! # let connection = sqlite_bindings_lunatic::open(":memory:").unwrap();
 //! # let query = "
 //! #     CREATE TABLE users (name TEXT, age INTEGER);
 //! #     INSERT INTO users VALUES ('Alice', 42);
@@ -64,7 +64,7 @@
 //! Run the same query but using a cursor, which is iterable:
 //!
 //! ```
-//! # let connection = sqlite::open(":memory:").unwrap();
+//! # let connection = sqlite_bindings_lunatic::open(":memory:").unwrap();
 //! # let query = "
 //! #     CREATE TABLE users (name TEXT, age INTEGER);
 //! #     INSERT INTO users VALUES ('Alice', 42);
