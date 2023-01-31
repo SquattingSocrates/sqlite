@@ -24,7 +24,7 @@ license = "Apache-2.0/MIT"
 name = "sqlite-bindings-lunatic"
 readme = "README.md"
 repository = "https://github.com/SquattingSocrates/sqlite"
-version = "0.30.3"
+version = "0.30.4"
 
 [features]
 default = ["linkage"]

@@ -1,4 +1,6 @@
-use sqlite::{Connection, State};
+extern crate sqlite_bindings_lunatic;
+
+use self::sqlite_bindings_lunatic::{Connection, State};
 
 macro_rules! ok(($result:expr) => ($result.unwrap()));
 

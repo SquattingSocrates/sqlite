@@ -1,9 +1,9 @@
 #![feature(test)]
 
-extern crate sqlite;
+extern crate sqlite_bindings_lunatic;
 extern crate test;
 
-use sqlite::State;
+use sqlite_bindings_lunatic::State;
 use test::Bencher;
 
 mod common;

@@ -383,12 +383,6 @@ impl BindableWithIndex for i64 {
 impl BindableWithIndex for &str {
     #[inline]
     fn bind<T: ParameterIndex>(self, statement: &mut Statement, index: T) -> Result<()> {
-        println!(
-            "BINDING TEXT {:?} | {:?} -> {}",
-            statement,
-            index.index(statement),
-            self
-        );
         unsafe {
             let value = ffi::sqlite3_bind_text(
                 statement.raw,
@@ -397,7 +391,6 @@ impl BindableWithIndex for &str {
                 self.len() as c_int,
                 transient!(),
             );
-            println!("GOT RESPONSE FROM BIND {:?}", value);
             ok!(value);
         }
         Ok(())
